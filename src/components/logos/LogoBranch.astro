@@ -1,0 +1,52 @@
+---
+// Tree / branch: trunk recursively splits outward; each level draws then
+// dissolves on a stagger so it looks like continuous fractal growth.
+---
+<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <g class="tree">
+    <line class="b l0" x1="20" y1="38" x2="20" y2="28" />
+
+    <line class="b l1" x1="20" y1="28" x2="13" y2="22" />
+    <line class="b l1" x1="20" y1="28" x2="27" y2="22" />
+
+    <line class="b l2" x1="13" y1="22" x2="8"  y2="17" />
+    <line class="b l2" x1="13" y1="22" x2="16" y2="14" />
+    <line class="b l2" x1="27" y1="22" x2="32" y2="17" />
+    <line class="b l2" x1="27" y1="22" x2="24" y2="14" />
+
+    <line class="b l3" x1="8"  y1="17" x2="6"  y2="13" />
+    <line class="b l3" x1="8"  y1="17" x2="11" y2="11" />
+    <line class="b l3" x1="16" y1="14" x2="14" y2="9"  />
+    <line class="b l3" x1="16" y1="14" x2="19" y2="8"  />
+    <line class="b l3" x1="32" y1="17" x2="34" y2="13" />
+    <line class="b l3" x1="32" y1="17" x2="29" y2="11" />
+    <line class="b l3" x1="24" y1="14" x2="26" y2="9"  />
+    <line class="b l3" x1="24" y1="14" x2="21" y2="8"  />
+  </g>
+</svg>
+
+<style>
+  svg { stroke: currentColor; fill: none; overflow: visible; }
+  .b {
+    stroke-width: 0.7;
+    stroke-linecap: round;
+    stroke-dasharray: 14 14;
+    stroke-dashoffset: 14;
+    animation: grow 6s ease-in-out infinite;
+  }
+  .l0 { animation-delay: 0s;   }
+  .l1 { animation-delay: 0.6s; }
+  .l2 { animation-delay: 1.2s; }
+  .l3 { animation-delay: 1.8s; }
+  @keyframes grow {
+    0%   { stroke-dashoffset: 14; opacity: 0.3; }
+    25%  { stroke-dashoffset: 0;  opacity: 0.95; }
+    75%  { stroke-dashoffset: 0;  opacity: 0.95; }
+    100% { stroke-dashoffset: -14; opacity: 0.3; }
+  }
+  :global(.brand:hover) .b,
+  :global(.logo-host:hover) .b {
+    animation-duration: 2.2s;
+    stroke-width: 0.9;
+  }
+</style>

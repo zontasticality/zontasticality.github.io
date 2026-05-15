@@ -1,0 +1,40 @@
+---
+// ASCII: a tiny text-mode network rendered with SVG <text>, flipbooked
+// across a few frames so the "links" between nodes shimmer.
+---
+<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+     font-size="7"
+     text-anchor="middle"
+     fill="currentColor">
+    <text class="frame f1" x="20" y="14">
+      <tspan x="20" dy="0">o-o-o</tspan>
+      <tspan x="20" dy="9">|\|/|</tspan>
+      <tspan x="20" dy="9">o-o-o</tspan>
+    </text>
+    <text class="frame f2" x="20" y="14">
+      <tspan x="20" dy="0">o.o.o</tspan>
+      <tspan x="20" dy="9">.\./.</tspan>
+      <tspan x="20" dy="9">o.o.o</tspan>
+    </text>
+    <text class="frame f3" x="20" y="14">
+      <tspan x="20" dy="0">o=o=o</tspan>
+      <tspan x="20" dy="9">|/|\|</tspan>
+      <tspan x="20" dy="9">o=o=o</tspan>
+    </text>
+  </g>
+</svg>
+
+<style>
+  svg { overflow: visible; }
+  .frame { opacity: 0; animation: cycle 3.6s steps(1) infinite; }
+  .f1 { animation-delay: 0s;   }
+  .f2 { animation-delay: 1.2s; }
+  .f3 { animation-delay: 2.4s; }
+  @keyframes cycle {
+    0%, 33.32% { opacity: 1; }
+    33.33%, 100% { opacity: 0; }
+  }
+  :global(.brand:hover) .frame,
+  :global(.logo-host:hover) .frame { animation-duration: 0.9s; }
+</style>

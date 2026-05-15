@@ -1,0 +1,39 @@
+---
+// Orbital: peer nodes rotating around an empty center.
+// No leader, no hierarchy — just consensus by motion.
+---
+<svg viewBox="-20 -20 40 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <g class="orbit">
+    <circle cx="0"   cy="-14" r="1.9" />
+    <circle cx="12"  cy="-7"  r="1.9" />
+    <circle cx="12"  cy="7"   r="1.9" />
+    <circle cx="0"   cy="14"  r="1.9" />
+    <circle cx="-12" cy="7"   r="1.9" />
+    <circle cx="-12" cy="-7"  r="1.9" />
+  </g>
+  <g class="ring">
+    <circle cx="0" cy="0" r="14" />
+  </g>
+</svg>
+
+<style>
+  svg { fill: currentColor; stroke: currentColor; overflow: visible; }
+  .orbit {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: spin 22s linear infinite;
+  }
+  .ring circle {
+    fill: none;
+    stroke-width: 0.4;
+    stroke-dasharray: 1.5 3;
+    opacity: 0.25;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  :global(.brand:hover) .orbit,
+  :global(.logo-host:hover) .orbit { animation-duration: 4s; }
+  :global(.brand:hover) .ring circle,
+  :global(.logo-host:hover) .ring circle { opacity: 0.6; }
+</style>

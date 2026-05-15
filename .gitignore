@@ -1,0 +1,12 @@
+node_modules
+dist
+.astro
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example
+
+# Private source materials (PDFs, scans, raw screenshots, course notes).
+# Anything in data/ IS committed; external/ is not.
+external/

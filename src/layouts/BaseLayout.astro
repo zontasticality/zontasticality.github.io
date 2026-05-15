@@ -1,0 +1,115 @@
+---
+import '../styles/global.css';
+import LogoMesh from '../components/logos/LogoMesh.astro';
+import LogoBranch from '../components/logos/LogoBranch.astro';
+import LogoOrbital from '../components/logos/LogoOrbital.astro';
+import LogoGossip from '../components/logos/LogoGossip.astro';
+import LogoAscii from '../components/logos/LogoAscii.astro';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const { title, description } = Astro.props;
+const fullTitle = title ? `${title} — zon` : 'zon';
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    {description && <meta name="description" content={description} />}
+    <meta name="color-scheme" content="light dark" />
+    <script is:inline>
+      // Apply theme + logo before first paint to avoid a flash.
+      (function () {
+        try {
+          var t = localStorage.getItem('theme');
+          if (t === 'dark' || t === 'light') {
+            document.documentElement.dataset.theme = t;
+          }
+          var l = localStorage.getItem('logo');
+          if (l) document.documentElement.dataset.logo = l;
+          else document.documentElement.dataset.logo = 'mesh';
+        } catch (_) {
+          document.documentElement.dataset.logo = 'mesh';
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <header class="site-header">
+      <a href="/" class="brand">
+        <span class="logo-host" aria-hidden="true">
+          <span data-logo="mesh"><LogoMesh /></span>
+          <span data-logo="branch"><LogoBranch /></span>
+          <span data-logo="orbital"><LogoOrbital /></span>
+          <span data-logo="gossip"><LogoGossip /></span>
+          <span data-logo="ascii"><LogoAscii /></span>
+        </span>
+        <span class="name">zon</span>
+      </a>
+      <nav>
+        <a href="/about">about</a>
+        <a href="/projects">projects</a>
+        <a href="/history">history</a>
+        <button class="theme-toggle" type="button" aria-label="Toggle theme">
+          <span class="th-system">auto</span>
+          <span class="th-light">light</span>
+          <span class="th-dark">dark</span>
+        </button>
+      </nav>
+    </header>
+
+    <main>
+      <slot />
+    </main>
+
+    <footer class="site-footer">
+      <p>
+        built quietly · <a href="https://github.com/zontasticality">github</a>
+        · press <kbd>L</kbd> to cycle logos
+      </p>
+    </footer>
+
+    <script is:inline>
+      (function () {
+        var order = ['mesh', 'branch', 'orbital', 'gossip', 'ascii'];
+        var root = document.documentElement;
+
+        // Theme toggle: system → light → dark → system
+        var btn = document.querySelector('.theme-toggle');
+        if (btn) {
+          btn.addEventListener('click', function () {
+            var cur = localStorage.getItem('theme') || 'system';
+            var next = cur === 'system' ? 'light'
+                     : cur === 'light'  ? 'dark'
+                     :                    'system';
+            if (next === 'system') {
+              localStorage.removeItem('theme');
+              delete root.dataset.theme;
+            } else {
+              localStorage.setItem('theme', next);
+              root.dataset.theme = next;
+            }
+          });
+        }
+
+        // Logo cycling on 'L' (no modifiers, not while typing in fields)
+        document.addEventListener('keydown', function (e) {
+          if (e.key !== 'l' && e.key !== 'L') return;
+          if (e.ctrlKey || e.metaKey || e.altKey) return;
+          var tag = e.target && e.target.tagName;
+          if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
+          var cur = root.dataset.logo || 'mesh';
+          var idx = order.indexOf(cur);
+          var next = order[(idx + 1) % order.length];
+          root.dataset.logo = next;
+          try { localStorage.setItem('logo', next); } catch (_) {}
+        });
+      })();
+    </script>
+  </body>
+</html>

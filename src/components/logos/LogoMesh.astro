@@ -1,0 +1,62 @@
+---
+// Mesh network: peer nodes connected by edges that fade in and out.
+// No central node — the whole graph breathes asynchronously.
+---
+<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <g class="edges">
+    <line x1="8"  y1="10" x2="20" y2="6"  />
+    <line x1="20" y1="6"  x2="32" y2="10" />
+    <line x1="8"  y1="10" x2="20" y2="20" />
+    <line x1="32" y1="10" x2="20" y2="20" />
+    <line x1="20" y1="6"  x2="20" y2="20" />
+    <line x1="20" y1="20" x2="8"  y2="30" />
+    <line x1="20" y1="20" x2="32" y2="30" />
+    <line x1="8"  y1="30" x2="20" y2="34" />
+    <line x1="20" y1="34" x2="32" y2="30" />
+    <line x1="8"  y1="10" x2="8"  y2="30" />
+    <line x1="32" y1="10" x2="32" y2="30" />
+    <line x1="20" y1="20" x2="20" y2="34" />
+  </g>
+  <g class="nodes">
+    <circle cx="8"  cy="10" r="1.6" />
+    <circle cx="20" cy="6"  r="1.6" />
+    <circle cx="32" cy="10" r="1.6" />
+    <circle cx="20" cy="20" r="1.6" />
+    <circle cx="8"  cy="30" r="1.6" />
+    <circle cx="20" cy="34" r="1.6" />
+    <circle cx="32" cy="30" r="1.6" />
+  </g>
+</svg>
+
+<style>
+  svg { stroke: currentColor; fill: currentColor; overflow: visible; }
+  .edges line {
+    stroke-width: 0.6;
+    opacity: 0.12;
+    animation: meshPulse 6s ease-in-out infinite;
+  }
+  .edges line:nth-child(1)  { animation-delay: 0s; }
+  .edges line:nth-child(2)  { animation-delay: 0.4s; }
+  .edges line:nth-child(3)  { animation-delay: 0.9s; }
+  .edges line:nth-child(4)  { animation-delay: 1.3s; }
+  .edges line:nth-child(5)  { animation-delay: 1.8s; }
+  .edges line:nth-child(6)  { animation-delay: 2.2s; }
+  .edges line:nth-child(7)  { animation-delay: 2.6s; }
+  .edges line:nth-child(8)  { animation-delay: 3.1s; }
+  .edges line:nth-child(9)  { animation-delay: 3.5s; }
+  .edges line:nth-child(10) { animation-delay: 4.0s; }
+  .edges line:nth-child(11) { animation-delay: 4.5s; }
+  .edges line:nth-child(12) { animation-delay: 5.0s; }
+  .nodes circle { opacity: 0.85; }
+  @keyframes meshPulse {
+    0%, 100% { opacity: 0.1; }
+    50%      { opacity: 0.7; }
+  }
+  :global(.brand:hover) .edges line,
+  :global(.logo-host:hover) .edges line {
+    animation-duration: 1.6s;
+    stroke-width: 0.8;
+  }
+  :global(.brand:hover) .nodes circle,
+  :global(.logo-host:hover) .nodes circle { opacity: 1; }
+</style>

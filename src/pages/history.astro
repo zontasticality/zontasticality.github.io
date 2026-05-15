@@ -1,0 +1,359 @@
+---
+import fs from 'node:fs';
+import path from 'node:path';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import {
+  education,
+  courseExtras,
+  auditedCourses,
+  termOrder,
+  termLabel,
+} from '../data/courses.ts';
+
+/* ─── Tiny RFC 4180 CSV parser (handles quoted commas) ──────── */
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cur = '';
+  let inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { cur += '"'; i++; }
+        else inQ = false;
+      } else cur += c;
+    } else {
+      if (c === '"') inQ = true;
+      else if (c === ',') { row.push(cur); cur = ''; }
+      else if (c === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
+      else if (c === '\r') { /* skip */ }
+      else cur += c;
+    }
+  }
+  if (cur || row.length) { row.push(cur); rows.push(row); }
+  return rows.filter(r => r.length > 1);
+}
+
+interface TranscriptRow {
+  year: string;
+  class_code: string;
+  name: string;
+  school: string;
+  faculty: string;
+  final_eval: string;
+  eval_text: string;
+}
+
+const csvPath = path.resolve('./data/classes.csv');
+const raw = fs.readFileSync(csvPath, 'utf8');
+const rows = parseCsv(raw);
+const [, ...body] = rows; // skip header
+const transcript: TranscriptRow[] = body.map(r => ({
+  year: r[0] ?? '',
+  class_code: r[1] ?? '',
+  name: r[2] ?? '',
+  school: r[3] ?? '',
+  faculty: r[4] ?? '',
+  final_eval: r[5] ?? '',
+  eval_text: r[6] ?? '',
+}));
+
+// Bucket transcript rows by term. "Other" is AP credit — surface separately.
+const byTerm = new Map<string, TranscriptRow[]>();
+const otherCredit: TranscriptRow[] = [];
+for (const t of transcript) {
+  if (t.year === 'Other') { otherCredit.push(t); continue; }
+  if (!byTerm.has(t.year)) byTerm.set(t.year, []);
+  byTerm.get(t.year)!.push(t);
+}
+// Bucket audited rows by term too.
+const auditedByTerm = new Map<string, typeof auditedCourses>();
+for (const a of auditedCourses) {
+  if (!auditedByTerm.has(a.year)) auditedByTerm.set(a.year, []);
+  auditedByTerm.get(a.year)!.push(a as any);
+}
+
+const allTerms = new Set<string>([...byTerm.keys(), ...auditedByTerm.keys()]);
+const orderedTerms = [...allTerms].sort((a, b) => {
+  const ai = termOrder.indexOf(a);
+  const bi = termOrder.indexOf(b);
+  if (ai === -1 && bi === -1) return a < b ? 1 : -1;
+  if (ai === -1) return 1;
+  if (bi === -1) return -1;
+  return ai - bi;
+});
+
+function evalDisplay(e: string): { kind: 'grade' | 'accepted' | 'inprogress' | 'none'; text: string } {
+  if (!e) return { kind: 'none', text: '' };
+  if (e.toLowerCase() === 'accepted') return { kind: 'accepted', text: 'accepted' };
+  if (e.toUpperCase() === 'N/A') return { kind: 'inprogress', text: 'in progress' };
+  return { kind: 'grade', text: e };
+}
+
+function extrasFor(year: string, code: string) {
+  return courseExtras[`${year}:${code}`] ?? {};
+}
+---
+<BaseLayout title="history" description="Academic history">
+  <h1>history</h1>
+  <p class="muted">
+    Education timeline + a course log mined from transcripts and CVs.
+    Hampshire classes are evaluated narratively; UMass and Amherst classes
+    are graded.
+  </p>
+
+  <section class="edu">
+    {education.map((e) => (
+      <div class="edu-row">
+        <span class="span">{e.span}</span>
+        <span class="what">
+          <strong>{e.what}</strong>
+          {e.where && (
+            <>
+              <span class="muted"> · </span>
+              {e.whereUrl
+                ? <a href={e.whereUrl}>{e.where}</a>
+                : <span>{e.where}</span>}
+            </>
+          )}
+          {e.note && <span class="muted"> · {e.note}</span>}
+        </span>
+      </div>
+    ))}
+  </section>
+
+  <details open class="phase">
+    <summary><h2>College</h2></summary>
+
+    <div class="hampshire-stub">
+      <h3>Hampshire College <span class="muted">— layout pending</span></h3>
+      <p class="muted">
+        Awaiting layout approval. See proposed options in the chat — once you
+        pick one I'll wire it in. This is where Div III work, the concentration
+        statement, the committee, and the narrative evaluations would live.
+      </p>
+    </div>
+
+    <h3>Courses</h3>
+    {orderedTerms.map((term) => {
+      const transcriptRows = byTerm.get(term) ?? [];
+      const auditedRows = auditedByTerm.get(term) ?? [];
+      if (transcriptRows.length === 0 && auditedRows.length === 0) return null;
+      return (
+        <div class="term">
+          <h4>{termLabel(term)}</h4>
+          <ul class="courses">
+            {transcriptRows.map((r) => {
+              const ex = extrasFor(r.year, r.class_code);
+              const facultyName = ex.facultyDisplay || r.faculty;
+              const ev = evalDisplay(r.final_eval);
+              return (
+                <li class="course">
+                  <span class="code">{r.class_code}</span>
+                  <span class="name">
+                    {ex.courseUrl
+                      ? <a href={ex.courseUrl}>{r.name}</a>
+                      : r.name}
+                    {ex.paperUrl && (
+                      <> <a class="aux" href={ex.paperUrl}>(paper)</a></>
+                    )}
+                  </span>
+                  <span class="school">{r.school}</span>
+                  <span class="faculty">
+                    {facultyName ? (
+                      ex.facultyUrl
+                        ? <a href={ex.facultyUrl}>{facultyName}</a>
+                        : <span>{facultyName}</span>
+                    ) : <span class="muted">—</span>}
+                  </span>
+                  <span class={`eval eval-${ev.kind}`}>{ev.text || '—'}</span>
+                </li>
+              );
+            })}
+            {auditedRows.map((a) => (
+              <li class="course audited">
+                <span class="code">{a.class_code || '—'}</span>
+                <span class="name">
+                  {a.courseUrl
+                    ? <a href={a.courseUrl}>{a.name}</a>
+                    : a.name}
+                </span>
+                <span class="school">{a.school}</span>
+                <span class="faculty">
+                  {a.faculty ? (
+                    a.facultyUrl
+                      ? <a href={a.facultyUrl}>{a.facultyDisplay || a.faculty}</a>
+                      : <span>{a.facultyDisplay || a.faculty}</span>
+                  ) : <span class="muted">—</span>}
+                </span>
+                <span class="eval eval-audited">audited</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      );
+    })}
+
+    {otherCredit.length > 0 && (
+      <div class="term other">
+        <h4>Transfer / AP credit</h4>
+        <ul class="courses minimal">
+          {otherCredit.map((r) => (
+            <li class="course"><span class="name muted">{r.name}</span></li>
+          ))}
+        </ul>
+      </div>
+    )}
+  </details>
+
+  <details class="phase">
+    <summary><h2>High School</h2></summary>
+    <p class="muted">Charter School of Wilmington · 2018–2022 · placeholder.</p>
+  </details>
+</BaseLayout>
+
+<style>
+  .muted { color: var(--fg-muted); }
+
+  .edu { margin: 1.5em 0 2em; }
+  .edu-row {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 12px;
+    padding: 4px 0;
+    align-items: baseline;
+  }
+  .edu-row .span {
+    color: var(--fg-muted);
+    font-size: 0.88em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .phase {
+    border-top: 1px solid var(--rule);
+    padding-top: 0.4em;
+    margin-top: 1em;
+  }
+  .phase > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 0.2em 0;
+  }
+  .phase > summary::-webkit-details-marker { display: none; }
+  .phase > summary > h2 {
+    display: inline;
+    margin: 0;
+  }
+  .phase > summary::before {
+    content: "▸";
+    display: inline-block;
+    width: 1.2em;
+    color: var(--fg-muted);
+    transition: transform 160ms ease;
+  }
+  .phase[open] > summary::before {
+    transform: rotate(90deg);
+  }
+
+  .hampshire-stub {
+    margin: 1em 0 1.5em;
+    padding: 14px 16px;
+    border: 1px dashed var(--rule);
+    border-radius: 6px;
+    background: transparent;
+  }
+  .hampshire-stub h3 { margin: 0 0 0.4em; font-size: 1.05em; }
+  .hampshire-stub p { margin: 0; font-size: 0.9em; }
+
+  .term { margin: 1.4em 0; }
+  .term h4 {
+    margin: 0.6em 0 0.4em;
+    font-size: 0.85em;
+    color: var(--fg-muted);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .courses {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .course {
+    display: grid;
+    grid-template-columns: 92px 1fr 90px 1fr 90px;
+    gap: 10px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--rule);
+    align-items: baseline;
+    font-size: 0.94em;
+  }
+  .course:last-child { border-bottom: 0; }
+  .course .code {
+    color: var(--fg-muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.82em;
+  }
+  .course .name { line-height: 1.35; }
+  .course .school {
+    font-size: 0.82em;
+    color: var(--fg-muted);
+    text-transform: lowercase;
+  }
+  .course .faculty {
+    font-size: 0.88em;
+    color: var(--fg);
+  }
+  .course .faculty a {
+    color: var(--fg);
+    text-decoration: underline;
+    text-decoration-color: var(--rule);
+  }
+  .course .faculty a:hover {
+    text-decoration-color: currentColor;
+    color: var(--link);
+  }
+  .course .aux {
+    font-size: 0.82em;
+    color: var(--fg-muted);
+    text-decoration: underline;
+    text-decoration-color: var(--rule);
+  }
+  .course .aux:hover { color: var(--link); }
+
+  .course .eval {
+    font-size: 0.82em;
+    text-align: right;
+    color: var(--fg-muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .eval-grade { color: var(--fg-strong); }
+  .eval-accepted { color: var(--fg); font-style: italic; font-family: inherit; }
+  .eval-inprogress { color: var(--fg-muted); }
+  .eval-audited { color: var(--fg-muted); font-style: italic; font-family: inherit; }
+
+  .course.audited .name { color: var(--fg-muted); }
+  .course.audited .name a { color: var(--fg-muted); }
+
+  .other ul.minimal { padding-left: 1.2em; list-style: disc; }
+  .other ul.minimal li { display: list-item; border: 0; padding: 2px 0; }
+
+  /* Narrower screens: collapse to two-row stacked layout */
+  @media (max-width: 720px) {
+    .course {
+      grid-template-columns: 80px 1fr 70px;
+      grid-template-areas:
+        "code name eval"
+        ".    fac  school";
+      row-gap: 2px;
+    }
+    .course .code { grid-area: code; }
+    .course .name { grid-area: name; }
+    .course .eval { grid-area: eval; }
+    .course .faculty { grid-area: fac; }
+    .course .school { grid-area: school; text-align: right; }
+    .edu-row { grid-template-columns: 110px 1fr; }
+  }
+</style>

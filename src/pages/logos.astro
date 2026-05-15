@@ -1,0 +1,63 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import LogoMesh from '../components/logos/LogoMesh.astro';
+import LogoBranch from '../components/logos/LogoBranch.astro';
+import LogoOrbital from '../components/logos/LogoOrbital.astro';
+import LogoGossip from '../components/logos/LogoGossip.astro';
+import LogoAscii from '../components/logos/LogoAscii.astro';
+
+const candidates = [
+  { name: 'mesh',    label: 'mesh network',  Comp: LogoMesh },
+  { name: 'branch',  label: 'tree / branch', Comp: LogoBranch },
+  { name: 'orbital', label: 'orbital',       Comp: LogoOrbital },
+  { name: 'gossip',  label: 'gossip wave',   Comp: LogoGossip },
+  { name: 'ascii',   label: 'ascii',         Comp: LogoAscii },
+];
+---
+<BaseLayout title="logos" description="Decentralization logo candidates">
+  <h1>logo candidates</h1>
+  <p>
+    Five drafts. Each has a slow ambient animation by default and shifts
+    on hover. Press <kbd>L</kbd> anywhere on the site to cycle the active
+    one (saved in your browser).
+  </p>
+
+  <div class="grid">
+    {candidates.map(({ name, label, Comp }) => (
+      <figure class="cell">
+        <span class="logo-host demo"><Comp /></span>
+        <figcaption>
+          <code>{name}</code>
+          <span class="muted"> — {label}</span>
+        </figcaption>
+      </figure>
+    ))}
+  </div>
+
+  <p class="muted small">
+    Tip: hover any of the boxes above (or the logo in the header) to see the
+    on-hover animation state.
+  </p>
+</BaseLayout>
+
+<style>
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 18px;
+    margin: 1.5em 0;
+  }
+  .cell { margin: 0; text-align: center; }
+  .demo {
+    /* Override the small inline size from global .logo-host */
+    width: 64px !important;
+    height: 64px !important;
+    padding: 8px;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    margin-bottom: 8px;
+  }
+  figcaption { font-size: 0.85em; }
+  .muted { color: var(--fg-muted); }
+  .small { font-size: 0.88em; }
+</style>
