@@ -231,6 +231,9 @@ function classesForPhase(p: Phase) {
                       {ex.paperUrl && (
                         <> <a class="aux" href={ex.paperUrl}>(paper)</a></>
                       )}
+                      {ex.notesUrl && (
+                        <> <a class="aux" href={ex.notesUrl}>(notes)</a></>
+                      )}
                     </span>
                     <span class="school">{r.school}</span>
                     <span class="faculty" title={facultyName || undefined}>
@@ -253,6 +256,12 @@ function classesForPhase(p: Phase) {
                       {a.courseUrl
                         ? <a href={a.courseUrl}>{a.name}</a>
                         : a.name}
+                      {a.paperUrl && (
+                        <> <a class="aux" href={a.paperUrl}>(paper)</a></>
+                      )}
+                      {a.notesUrl && (
+                        <> <a class="aux" href={a.notesUrl}>(notes)</a></>
+                      )}
                     </span>
                     <span class="school">{a.school}</span>
                     <span class="faculty" title={audFac || undefined}>
@@ -460,13 +469,21 @@ function classesForPhase(p: Phase) {
     text-decoration-color: currentColor;
     color: var(--link);
   }
+  /* Inline superscript for (notes), (paper), and any other auxiliary
+     artifact links — sits next to the class name like a footnote marker. */
   .course .aux {
-    font-size: 0.82em;
+    font-size: 0.65em;
+    vertical-align: super;
+    line-height: 0;
+    margin-left: 2px;
     color: var(--fg-muted);
     text-decoration: underline;
     text-decoration-color: var(--rule);
   }
-  .course .aux:hover { color: var(--link); }
+  .course .aux:hover {
+    color: var(--link);
+    text-decoration-color: currentColor;
+  }
   .course .eval {
     font-size: 0.82em;
     text-align: right;

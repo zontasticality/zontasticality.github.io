@@ -7,6 +7,7 @@ export interface CourseExtras {
   courseUrl?: string;
   facultyUrl?: string;
   paperUrl?: string;
+  notesUrl?: string;
   facultyDisplay?: string; // override CSV faculty surname with full name
 }
 
@@ -20,6 +21,7 @@ export interface AuditedCourse {
   courseUrl?: string;
   facultyUrl?: string;
   paperUrl?: string;
+  notesUrl?: string;
 }
 
 export interface PhaseLink {
@@ -185,7 +187,10 @@ export const courseExtras: Record<string, CourseExtras> = {
   },
   '2023F:COMPSCI-230': { facultyDisplay: 'Meng-Chieh Chiu' },
   '2023F:INST-0300': { facultyDisplay: 'Kenneth Mulder' },
-  '2026S:INST-0300': { facultyDisplay: 'Kenneth Mulder' },
+  '2026S:INST-0300': {
+    facultyDisplay: 'Kenneth Mulder',
+    notesUrl: '/notes/category-theory-for-agi.pdf',
+  },
 };
 
 // Audited / shadowed courses — not on the transcript.
@@ -198,6 +203,7 @@ export const auditedCourses: AuditedCourse[] = [
     facultyDisplay: 'Scott Niekum',
     facultyUrl: 'https://people.cs.umass.edu/~sniekum/',
     courseUrl: 'https://people.cs.umass.edu/~sniekum/classes/LFH-S2/desc.php',
+    notesUrl: '/notes/cs690s-ai-alignment.pdf',
   },
   {
     year: '2025F',
