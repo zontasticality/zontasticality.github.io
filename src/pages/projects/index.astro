@@ -5,54 +5,48 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 const projects = (await getCollection('projects', ({ data }) => !data.draft))
   .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 
-function hashHue(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return Math.abs(h) % 360;
-}
-
 const fmtDate = (d: Date) =>
   d.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
 ---
 <BaseLayout title="projects" description="Past and ongoing projects">
   <h1>past projects</h1>
   <p>
-    Reverse-chronological. A timeline view is on the way. Cards link out
-    to the repo.
+    Reverse-chronological. Cards link out to the repo.
   </p>
 
-  <ul class="proj-grid">
+  <ul class="proj-list">
     {projects.map(({ id, data }) => {
-      const hue = hashHue(id || data.title);
-      const fallback = `linear-gradient(135deg, hsl(${hue} 55% 38%), hsl(${(hue + 60) % 360} 60% 22%))`;
-      const bgStyle = data.image
-        ? `background-image: url(${data.image});`
-        : `background-image: ${fallback};`;
-      const href = data.link || '#';
-      const isExternal = !!data.link;
+      const primary = data.page || data.link;
+      const href = primary || '#';
+      const isExternal = !!primary;
+      const dateLabel = data.dateRange || fmtDate(data.date);
       return (
-        <li class="proj-cell">
+        <li>
           <a
-            class="proj-card"
+            class={`proj-card ${data.image ? 'has-image' : 'no-image'}`}
             href={href}
             target={isExternal ? '_blank' : undefined}
             rel={isExternal ? 'noopener' : undefined}
-            style={bgStyle}
           >
-            <div class="meta">
-              <span class="date">{fmtDate(data.date)}</span>
-              {data.status !== 'complete' && (
-                <span class={`status status-${data.status}`}>{data.status}</span>
-              )}
-            </div>
-            <div class="overlay">
-              <h3 class="title">{data.title}</h3>
+            {data.image && (
+              <div class="thumb" style={`background-image: url(${data.image});`} />
+            )}
+            <div class="body">
+              <div class="head">
+                <h3 class="title">{data.title}</h3>
+                <span class="date">{dateLabel}</span>
+              </div>
               <p class="summary">{data.summary}</p>
-              {data.tags.length > 0 && (
-                <p class="tags">
-                  {data.tags.map((t) => <span class="tag">{t}</span>)}
-                </p>
-              )}
+              <div class="foot">
+                {data.tags.length > 0 && (
+                  <span class="tags">
+                    {data.tags.map((t) => <span class="tag">{t}</span>)}
+                  </span>
+                )}
+                {data.status !== 'complete' && (
+                  <span class={`status status-${data.status}`}>{data.status}</span>
+                )}
+              </div>
             </div>
           </a>
         </li>
@@ -62,91 +56,104 @@ const fmtDate = (d: Date) =>
 </BaseLayout>
 
 <style>
-  .proj-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 16px;
+  .proj-list {
     list-style: none;
     padding: 0;
     margin: 1.5em 0;
-  }
-  .proj-cell { margin: 0; }
-  .proj-card {
-    position: relative;
-    display: block;
-    height: 220px;
-    border-radius: 8px;
-    overflow: hidden;
-    text-decoration: none;
-    color: #fff;
-    background-color: #2a2d33;
-    background-size: cover;
-    background-position: center;
-    border: 1px solid var(--rule);
-    transition: transform 200ms ease, box-shadow 200ms ease;
-  }
-  .proj-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
-  }
-  .proj-card:hover { color: #fff; }
-  .proj-card .meta {
-    position: absolute;
-    top: 10px;
-    left: 14px;
-    right: 14px;
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.78em;
-    color: rgba(255, 255, 255, 0.92);
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-    z-index: 1;
-  }
-  .proj-card .status {
-    background: rgba(255, 255, 255, 0.18);
-    padding: 1px 7px;
-    border-radius: 3px;
-    font-size: 0.92em;
-  }
-  .proj-card .overlay {
-    position: absolute;
-    inset: 0;
-    padding: 14px 16px;
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
-    background: linear-gradient(
-      to top,
-      rgba(0, 0, 0, 0.85) 0%,
-      rgba(0, 0, 0, 0.55) 45%,
-      rgba(0, 0, 0, 0.18) 80%,
-      rgba(0, 0, 0, 0.05) 100%
-    );
+    gap: 12px;
+  }
+  .proj-card {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 16px;
+    text-decoration: none;
+    color: inherit;
+    background: var(--card-bg);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: border-color 150ms ease, transform 150ms ease;
+  }
+  .proj-card.no-image { grid-template-columns: 1fr; }
+  .proj-card:hover {
+    border-color: var(--fg-muted);
+    transform: translateY(-1px);
+  }
+  .proj-card .thumb {
+    background-size: cover;
+    background-position: center;
+    background-color: var(--rule);
+    min-height: 140px;
+  }
+  .proj-card .body {
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+  .proj-card .head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
   }
   .proj-card .title {
-    margin: 0 0 0.25em;
-    color: #fff;
-    font-size: 1.12em;
-    line-height: 1.25;
+    margin: 0;
+    font-size: 1.05em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--fg-strong);
+  }
+  .proj-card .date {
+    font-size: 0.82em;
+    color: var(--fg-muted);
+    white-space: nowrap;
   }
   .proj-card .summary {
     margin: 0;
-    font-size: 0.9em;
-    line-height: 1.45;
-    opacity: 0.95;
+    font-size: 0.94em;
+    line-height: 1.5;
+    color: var(--fg);
+    overflow-wrap: anywhere;
+  }
+  .proj-card .foot {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-top: 4px;
   }
   .proj-card .tags {
-    margin: 0.55em 0 0;
-    display: flex;
+    display: inline-flex;
     flex-wrap: wrap;
     gap: 4px;
   }
   .proj-card .tag {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 0.72em;
-    background: rgba(255, 255, 255, 0.16);
+    background: var(--bg);
+    border: 1px solid var(--rule);
     border-radius: 3px;
     padding: 1px 6px;
-    color: rgba(255, 255, 255, 0.92);
+    color: var(--fg-muted);
+  }
+  .proj-card .status {
+    font-size: 0.72em;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--fg-muted);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 1px 6px;
+    white-space: nowrap;
+  }
+
+  /* Stack thumb on top on narrow screens. */
+  @media (max-width: 560px) {
+    .proj-card { grid-template-columns: 1fr; }
+    .proj-card .thumb { min-height: 160px; }
   }
 </style>

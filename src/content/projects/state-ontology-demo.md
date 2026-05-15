@@ -5,6 +5,9 @@ summary: "A visual ontology of various notions of (human) 'State' — Weber, Mar
 tags: ["ontology", "philosophy"]
 status: complete
 link: "https://github.com/zontasticality/state-ontology-demo"
+page: "https://zontasticality.github.io/state-ontology-demo/"
+dateRange: "Mar – Apr 2025"
+image: "/projects/state-ontology-demo.png"
 ---
 
 [Writeup placeholder.]

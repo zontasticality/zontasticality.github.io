@@ -5,6 +5,7 @@ summary: "Research on cultural values encoded in LLMs."
 tags: ["python", "llm", "research"]
 status: ongoing
 link: "https://github.com/zontasticality/llm-cultural-values"
+dateRange: "Feb 2026 – present"
 ---
 
 [Writeup placeholder.]

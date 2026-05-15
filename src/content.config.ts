@@ -10,6 +10,8 @@ const projects = defineCollection({
     tags: z.array(z.string()).default([]),
     status: z.enum(['ongoing', 'complete', 'archived', 'paused']).default('complete'),
     link: z.string().url().optional(),
+    page: z.string().url().optional(),       // deployed project page; takes priority over link for card click
+    dateRange: z.string().optional(),        // human-readable major dev window, e.g. "Apr – May 2025"
     image: z.string().optional(),
     draft: z.boolean().default(false),
   }),
