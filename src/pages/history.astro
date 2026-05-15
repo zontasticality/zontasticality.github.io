@@ -3,11 +3,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import {
-  education,
+  phases,
   courseExtras,
   auditedCourses,
-  termOrder,
-  termLabel,
+  type Phase,
 } from '../data/courses.ts';
 
 /* ─── Tiny RFC 4180 CSV parser (handles quoted commas) ──────── */
@@ -48,7 +47,7 @@ interface TranscriptRow {
 const csvPath = path.resolve('./data/classes.csv');
 const raw = fs.readFileSync(csvPath, 'utf8');
 const rows = parseCsv(raw);
-const [, ...body] = rows; // skip header
+const [, ...body] = rows;
 const transcript: TranscriptRow[] = body.map(r => ({
   year: r[0] ?? '',
   class_code: r[1] ?? '',
@@ -59,30 +58,63 @@ const transcript: TranscriptRow[] = body.map(r => ({
   eval_text: r[6] ?? '',
 }));
 
-// Bucket transcript rows by term. "Other" is AP credit — surface separately.
+interface HsClassRow {
+  year: string;
+  course_code: string;
+  section: string;
+  name: string;
+  teacher: string;
+  sem1: string;
+  sem2: string;
+  final: string;
+  comment_codes: string[]; // split from semicolon-separated
+  credit: string;
+}
+
+const hsClassesPath = path.resolve('./data/highschool_classes.csv');
+const hsClassesRaw = fs.readFileSync(hsClassesPath, 'utf8');
+const hsClassesRows = parseCsv(hsClassesRaw);
+const [, ...hsClassesBody] = hsClassesRows;
+const hsClasses: HsClassRow[] = hsClassesBody.map(r => ({
+  year: r[0] ?? '',
+  course_code: r[1] ?? '',
+  section: r[2] ?? '',
+  name: r[3] ?? '',
+  teacher: r[4] ?? '',
+  sem1: r[5] ?? '',
+  sem2: r[6] ?? '',
+  final: r[7] ?? '',
+  comment_codes: (r[8] ?? '').split(';').map(s => s.trim()).filter(Boolean),
+  credit: r[9] ?? '',
+}));
+
+const hsCommentsPath = path.resolve('./data/highschool_comments.csv');
+const hsCommentsRaw = fs.readFileSync(hsCommentsPath, 'utf8');
+const hsCommentsRows = parseCsv(hsCommentsRaw);
+const [, ...hsCommentsBody] = hsCommentsRows;
+const hsCommentMeaning: Record<string, string> = {};
+for (const r of hsCommentsBody) {
+  if (r[0]) hsCommentMeaning[r[0]] = r[1] ?? '';
+}
+
+// CSV `Other` rows (transfer/AP credit) are surfaced under the HS phase
+// instead, via Phase.hsClasses — drop them from the term map.
 const byTerm = new Map<string, TranscriptRow[]>();
-const otherCredit: TranscriptRow[] = [];
 for (const t of transcript) {
-  if (t.year === 'Other') { otherCredit.push(t); continue; }
+  if (t.year === 'Other') continue;
   if (!byTerm.has(t.year)) byTerm.set(t.year, []);
   byTerm.get(t.year)!.push(t);
 }
-// Bucket audited rows by term too.
 const auditedByTerm = new Map<string, typeof auditedCourses>();
 for (const a of auditedCourses) {
   if (!auditedByTerm.has(a.year)) auditedByTerm.set(a.year, []);
-  auditedByTerm.get(a.year)!.push(a as any);
+  auditedByTerm.get(a.year)!.push(a);
 }
 
-const allTerms = new Set<string>([...byTerm.keys(), ...auditedByTerm.keys()]);
-const orderedTerms = [...allTerms].sort((a, b) => {
-  const ai = termOrder.indexOf(a);
-  const bi = termOrder.indexOf(b);
-  if (ai === -1 && bi === -1) return a < b ? 1 : -1;
-  if (ai === -1) return 1;
-  if (bi === -1) return -1;
-  return ai - bi;
-});
+// Sort phases newest first.
+const orderedPhases = [...phases].sort((a, b) =>
+  a.sortKey < b.sortKey ? 1 : a.sortKey > b.sortKey ? -1 : 0
+);
 
 function evalDisplay(e: string): { kind: 'grade' | 'accepted' | 'inprogress' | 'none'; text: string } {
   if (!e) return { kind: 'none', text: '' };
@@ -94,191 +126,296 @@ function evalDisplay(e: string): { kind: 'grade' | 'accepted' | 'inprogress' | '
 function extrasFor(year: string, code: string) {
   return courseExtras[`${year}:${code}`] ?? {};
 }
+
+function classesForPhase(p: Phase) {
+  if (!p.term) return null;
+  const trans = byTerm.get(p.term) ?? [];
+  const aud = auditedByTerm.get(p.term) ?? [];
+  if (trans.length === 0 && aud.length === 0) return null;
+  return { trans, aud };
+}
 ---
-<BaseLayout title="history" description="Academic history">
+<BaseLayout title="history" description="Academic + work timeline">
   <h1>history</h1>
-  <p class="muted">
-    Education timeline + a course log mined from transcripts and CVs.
-    Hampshire classes are evaluated narratively; UMass and Amherst classes
-    are graded.
+  <p class="intro">
+    Reverse-chronological. Courses are pulled from the transcript;
+    audited classes and project artifacts are merged in from notes.
   </p>
 
-  <section class="edu">
-    {education.map((e) => (
-      <div class="edu-row">
-        <span class="span">{e.span}</span>
-        <span class="what">
-          <strong>{e.what}</strong>
-          {e.where && (
-            <>
-              <span class="muted"> · </span>
-              {e.whereUrl
-                ? <a href={e.whereUrl}>{e.where}</a>
-                : <span>{e.where}</span>}
-            </>
-          )}
-          {e.note && <span class="muted"> · {e.note}</span>}
-        </span>
-      </div>
-    ))}
-  </section>
-
-  <details open class="phase">
-    <summary><h2>College</h2></summary>
-
-    <div class="hampshire-stub">
-      <h3>Hampshire College <span class="muted">— layout pending</span></h3>
-      <p class="muted">
-        Awaiting layout approval. See proposed options in the chat — once you
-        pick one I'll wire it in. This is where Div III work, the concentration
-        statement, the committee, and the narrative evaluations would live.
-      </p>
-    </div>
-
-    <h3>Courses</h3>
-    {orderedTerms.map((term) => {
-      const transcriptRows = byTerm.get(term) ?? [];
-      const auditedRows = auditedByTerm.get(term) ?? [];
-      if (transcriptRows.length === 0 && auditedRows.length === 0) return null;
+  <div class="timeline">
+    {orderedPhases.map((p) => {
+      const cls = classesForPhase(p);
       return (
-        <div class="term">
-          <h4>{termLabel(term)}</h4>
-          <ul class="courses">
-            {transcriptRows.map((r) => {
-              const ex = extrasFor(r.year, r.class_code);
-              const facultyName = ex.facultyDisplay || r.faculty;
-              const ev = evalDisplay(r.final_eval);
-              return (
-                <li class="course">
-                  <span class="code">{r.class_code}</span>
-                  <span class="name">
-                    {ex.courseUrl
-                      ? <a href={ex.courseUrl}>{r.name}</a>
-                      : r.name}
-                    {ex.paperUrl && (
-                      <> <a class="aux" href={ex.paperUrl}>(paper)</a></>
-                    )}
-                  </span>
-                  <span class="school">{r.school}</span>
-                  <span class="faculty">
-                    {facultyName ? (
-                      ex.facultyUrl
-                        ? <a href={ex.facultyUrl}>{facultyName}</a>
-                        : <span>{facultyName}</span>
-                    ) : <span class="muted">—</span>}
-                  </span>
-                  <span class={`eval eval-${ev.kind}`}>{ev.text || '—'}</span>
-                </li>
-              );
-            })}
-            {auditedRows.map((a) => (
-              <li class="course audited">
-                <span class="code">{a.class_code || '—'}</span>
-                <span class="name">
-                  {a.courseUrl
-                    ? <a href={a.courseUrl}>{a.name}</a>
-                    : a.name}
-                </span>
-                <span class="school">{a.school}</span>
-                <span class="faculty">
-                  {a.faculty ? (
-                    a.facultyUrl
-                      ? <a href={a.facultyUrl}>{a.facultyDisplay || a.faculty}</a>
-                      : <span>{a.facultyDisplay || a.faculty}</span>
-                  ) : <span class="muted">—</span>}
-                </span>
-                <span class="eval eval-audited">audited</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <section class="phase-block" id={p.id}>
+          <header class={`phase-card phase-kind-${p.kindLabel.toLowerCase().replace(/\s+/g, '-')}`}>
+            <span class="kind-badge">{p.kindLabel}</span>
+            <h2 class="title">{p.title}</h2>
+            {p.subtitle && <p class="subtitle">{p.subtitle}</p>}
+            {p.description && <p class="description">{p.description}</p>}
+            {p.links && p.links.length > 0 && (
+              <p class="links">
+                {p.links.map((l) => (
+                  <a href={l.href}>{l.label}</a>
+                ))}
+              </p>
+            )}
+            {p.bullets && p.bullets.length > 0 && (
+              <ul class="bullets">
+                {p.bullets.map((b) => <li>{b}</li>)}
+              </ul>
+            )}
+            {p.awards && p.awards.length > 0 && (
+              <div class="awards">
+                <span class="sub-label">Awards</span>
+                <ul>{p.awards.map((a) => <li>{a}</li>)}</ul>
+              </div>
+            )}
+            {p.testScores && p.testScores.length > 0 && (
+              <div class="test-scores">
+                <span class="sub-label">Test scores</span>
+                <ul>{p.testScores.map((t) => (
+                  <li><strong>{t.label}</strong> <span class="muted">{t.score}</span></li>
+                ))}</ul>
+              </div>
+            )}
+            {p.apExams && p.apExams.length > 0 && (
+              <div class="ap-exams">
+                <span class="sub-label">AP exams</span>
+                <ul>{p.apExams.map((c) => <li>{c}</li>)}</ul>
+              </div>
+            )}
+            {p.id === 'highschool' && hsClasses.length > 0 && (
+              <>
+                <span class="sub-label">Senior year classes</span>
+                <ul class="hs-class-list">
+                  {hsClasses.map((c) => {
+                    const passOnly = c.final === 'P';
+                    return (
+                      <li class="hs-row">
+                        <span class="hs-name" title={c.name}>
+                          {c.name}
+                          {c.section && c.course_code === '3304' && (
+                            <span class="muted"> · sec {c.section}</span>
+                          )}
+                        </span>
+                        <span class="hs-teacher muted" title={c.teacher}>{c.teacher}</span>
+                        <span class={`hs-final ${passOnly ? 'pass' : ''}`}>{c.final}</span>
+                        {c.comment_codes.length > 0 && (
+                          <span class="hs-codes">
+                            {c.comment_codes.map((code) => (
+                              <span class="code-badge" title={hsCommentMeaning[code] ?? code}>{code}</span>
+                            ))}
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
+          </header>
+
+          {cls && (
+            <ul class="courses">
+              {cls.trans.map((r) => {
+                const ex = extrasFor(r.year, r.class_code);
+                const facultyName = ex.facultyDisplay || r.faculty;
+                const ev = evalDisplay(r.final_eval);
+                return (
+                  <li class="course">
+                    <span class="code">{r.class_code}</span>
+                    <span class="name" title={r.name}>
+                      {ex.courseUrl
+                        ? <a href={ex.courseUrl}>{r.name}</a>
+                        : r.name}
+                      {ex.paperUrl && (
+                        <> <a class="aux" href={ex.paperUrl}>(paper)</a></>
+                      )}
+                    </span>
+                    <span class="school">{r.school}</span>
+                    <span class="faculty" title={facultyName || undefined}>
+                      {facultyName ? (
+                        ex.facultyUrl
+                          ? <a href={ex.facultyUrl}>{facultyName}</a>
+                          : <span>{facultyName}</span>
+                      ) : <span class="muted">—</span>}
+                    </span>
+                    <span class={`eval eval-${ev.kind}`}>{ev.text || '—'}</span>
+                  </li>
+                );
+              })}
+              {cls.aud.map((a) => {
+                const audFac = a.facultyDisplay || a.faculty;
+                return (
+                  <li class="course audited">
+                    <span class="code">{a.class_code || '—'}</span>
+                    <span class="name" title={a.name}>
+                      {a.courseUrl
+                        ? <a href={a.courseUrl}>{a.name}</a>
+                        : a.name}
+                    </span>
+                    <span class="school">{a.school}</span>
+                    <span class="faculty" title={audFac || undefined}>
+                      {audFac ? (
+                        a.facultyUrl
+                          ? <a href={a.facultyUrl}>{audFac}</a>
+                          : <span>{audFac}</span>
+                      ) : <span class="muted">—</span>}
+                    </span>
+                    <span class="eval eval-audited">audited</span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
       );
     })}
 
-    {otherCredit.length > 0 && (
-      <div class="term other">
-        <h4>Transfer / AP credit</h4>
-        <ul class="courses minimal">
-          {otherCredit.map((r) => (
-            <li class="course"><span class="name muted">{r.name}</span></li>
-          ))}
-        </ul>
-      </div>
-    )}
-  </details>
-
-  <details class="phase">
-    <summary><h2>High School</h2></summary>
-    <p class="muted">Charter School of Wilmington · 2018–2022 · placeholder.</p>
-  </details>
+  </div>
 </BaseLayout>
 
 <style>
+  .intro { color: var(--fg-muted); margin-bottom: 2em; }
   .muted { color: var(--fg-muted); }
 
-  .edu { margin: 1.5em 0 2em; }
-  .edu-row {
-    display: grid;
-    grid-template-columns: 140px 1fr;
-    gap: 12px;
-    padding: 4px 0;
-    align-items: baseline;
-  }
-  .edu-row .span {
-    color: var(--fg-muted);
-    font-size: 0.88em;
-    font-variant-numeric: tabular-nums;
+  .timeline {
+    position: relative;
   }
 
-  .phase {
-    border-top: 1px solid var(--rule);
-    padding-top: 0.4em;
-    margin-top: 1em;
+  .phase-block {
+    margin: 1.4em 0 2.2em;
   }
-  .phase > summary {
-    list-style: none;
-    cursor: pointer;
-    padding: 0.2em 0;
+
+  /* The card-style header for each phase. */
+  .phase-card {
+    background: var(--card-bg);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 0.6em;
   }
-  .phase > summary::-webkit-details-marker { display: none; }
-  .phase > summary > h2 {
-    display: inline;
-    margin: 0;
-  }
-  .phase > summary::before {
-    content: "▸";
+  .phase-card .kind-badge {
     display: inline-block;
-    width: 1.2em;
-    color: var(--fg-muted);
-    transition: transform 160ms ease;
-  }
-  .phase[open] > summary::before {
-    transform: rotate(90deg);
-  }
-
-  .hampshire-stub {
-    margin: 1em 0 1.5em;
-    padding: 14px 16px;
-    border: 1px dashed var(--rule);
-    border-radius: 6px;
-    background: transparent;
-  }
-  .hampshire-stub h3 { margin: 0 0 0.4em; font-size: 1.05em; }
-  .hampshire-stub p { margin: 0; font-size: 0.9em; }
-
-  .term { margin: 1.4em 0; }
-  .term h4 {
-    margin: 0.6em 0 0.4em;
-    font-size: 0.85em;
-    color: var(--fg-muted);
-    font-weight: 600;
-    letter-spacing: 0.04em;
+    font-size: 0.7em;
     text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--fg-muted);
+    margin-bottom: 0.35em;
+  }
+  .phase-card .title {
+    font-size: 1.4em;
+    line-height: 1.18;
+    margin: 0;
+    color: var(--fg-strong);
+  }
+  .phase-card .subtitle {
+    font-size: 0.92em;
+    color: var(--fg-muted);
+    margin: 0.2em 0 0;
+  }
+  .phase-card .description {
+    margin: 0.7em 0 0;
+    font-size: 0.94em;
+    line-height: 1.55;
+  }
+  .phase-card .links {
+    margin: 0.7em 0 0;
+    font-size: 0.9em;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+  .phase-card .bullets {
+    margin: 0.6em 0 0;
+    padding-left: 1.2em;
+    font-size: 0.94em;
   }
 
-  .courses {
+  /* Per-kind accent stripe on the left edge of the card. */
+  .phase-card { position: relative; overflow: hidden; }
+  .phase-card::before {
+    content: "";
+    position: absolute;
+    top: 0; bottom: 0; left: 0;
+    width: 4px;
+    background: var(--fg-muted);
+    opacity: 0.5;
+  }
+  .phase-kind-division-i::before     { background: #6b8e7a; opacity: 0.75; }
+  .phase-kind-division-ii::before    { background: #7a8eb4; opacity: 0.8; }
+  .phase-kind-division-iii::before   { background: #a08bb4; opacity: 0.85; }
+  .phase-kind-summer-research::before { background: #b88a6a; opacity: 0.85; }
+  .phase-kind-high-school::before     { background: #888888; opacity: 0.55; }
+
+  /* Sub-blocks inside a phase card (awards, test scores, hs classes) */
+  .phase-card .sub-label {
+    display: block;
+    font-size: 0.72em;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--fg-muted);
+    margin: 0.9em 0 0.2em;
+  }
+  .phase-card .awards ul,
+  .phase-card .test-scores ul,
+  .phase-card .ap-exams ul {
+    margin: 0;
+    padding-left: 1.2em;
+    font-size: 0.94em;
+    line-height: 1.5;
+  }
+  .phase-card .test-scores li strong { color: var(--fg-strong); }
+
+  /* Senior-year class rows: name | teacher | final | code badges */
+  .hs-class-list {
     list-style: none;
     padding: 0;
+    margin: 0.3em 0 0;
+  }
+  .hs-row {
+    display: grid;
+    grid-template-columns: 1fr 130px 36px auto;
+    gap: 10px;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--rule);
+    align-items: baseline;
+    font-size: 0.92em;
+  }
+  .hs-row:last-child { border-bottom: 0; }
+  .hs-row > * { min-width: 0; }
+  .hs-name {
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
+  .hs-teacher {
+    font-size: 0.86em;
+    overflow-wrap: anywhere;
+  }
+  .hs-final {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.86em;
+    text-align: right;
+    color: var(--fg-strong);
+  }
+  .hs-final.pass { color: var(--fg-muted); }
+  .hs-codes { display: inline-flex; gap: 3px; flex-wrap: wrap; }
+  .code-badge {
+    display: inline-block;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.72em;
+    padding: 1px 5px;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    color: var(--fg-muted);
+    background: transparent;
+    cursor: help;
+  }
+
+  /* Course rows under each card. */
+  .courses {
+    list-style: none;
+    padding: 0 4px;
     margin: 0;
   }
   .course {
@@ -291,12 +428,19 @@ function extrasFor(year: string, code: string) {
     font-size: 0.94em;
   }
   .course:last-child { border-bottom: 0; }
+  /* Required so 1fr cells can shrink below intrinsic content width and ellipsis can engage. */
+  .course > * { min-width: 0; }
   .course .code {
     color: var(--fg-muted);
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 0.82em;
   }
-  .course .name { line-height: 1.35; }
+  .course .name {
+    line-height: 1.35;
+    /* Wrap by default; break mid-token only if a single unbreakable
+       string would otherwise force horizontal overflow. */
+    overflow-wrap: anywhere;
+  }
   .course .school {
     font-size: 0.82em;
     color: var(--fg-muted);
@@ -305,6 +449,7 @@ function extrasFor(year: string, code: string) {
   .course .faculty {
     font-size: 0.88em;
     color: var(--fg);
+    overflow-wrap: anywhere;
   }
   .course .faculty a {
     color: var(--fg);
@@ -322,7 +467,6 @@ function extrasFor(year: string, code: string) {
     text-decoration-color: var(--rule);
   }
   .course .aux:hover { color: var(--link); }
-
   .course .eval {
     font-size: 0.82em;
     text-align: right;
@@ -333,14 +477,9 @@ function extrasFor(year: string, code: string) {
   .eval-accepted { color: var(--fg); font-style: italic; font-family: inherit; }
   .eval-inprogress { color: var(--fg-muted); }
   .eval-audited { color: var(--fg-muted); font-style: italic; font-family: inherit; }
-
-  .course.audited .name { color: var(--fg-muted); }
+  .course.audited .name,
   .course.audited .name a { color: var(--fg-muted); }
 
-  .other ul.minimal { padding-left: 1.2em; list-style: disc; }
-  .other ul.minimal li { display: list-item; border: 0; padding: 2px 0; }
-
-  /* Narrower screens: collapse to two-row stacked layout */
   @media (max-width: 720px) {
     .course {
       grid-template-columns: 80px 1fr 70px;
@@ -354,6 +493,18 @@ function extrasFor(year: string, code: string) {
     .course .eval { grid-area: eval; }
     .course .faculty { grid-area: fac; }
     .course .school { grid-area: school; text-align: right; }
-    .edu-row { grid-template-columns: 110px 1fr; }
+    .phase-card { padding: 14px 16px; }
+    .phase-card .title { font-size: 1.2em; }
+    .hs-row {
+      grid-template-columns: 1fr 50px;
+      grid-template-areas:
+        "name final"
+        "teach codes";
+      row-gap: 1px;
+    }
+    .hs-name { grid-area: name; }
+    .hs-final { grid-area: final; }
+    .hs-teacher { grid-area: teach; }
+    .hs-codes { grid-area: codes; justify-self: end; }
   }
 </style>

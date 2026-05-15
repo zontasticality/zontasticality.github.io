@@ -1,12 +1,13 @@
-// History page data — education timeline, course URL extras, audited classes.
-// Transcript classes themselves live in /data/classes.csv (parsed at build time).
-// To add a link to a graded class, key by `${year}:${class_code}`.
+// /history timeline data. Each Phase becomes a card; term-based phases also
+// pull their classes from /data/classes.csv (by CSV `year`).
+//
+// To edit content, change this file. The page is dumb iteration over phases.
 
 export interface CourseExtras {
   courseUrl?: string;
   facultyUrl?: string;
   paperUrl?: string;
-  facultyDisplay?: string; // override CSV faculty surname with a full name
+  facultyDisplay?: string; // override CSV faculty surname with full name
 }
 
 export interface AuditedCourse {
@@ -21,24 +22,120 @@ export interface AuditedCourse {
   paperUrl?: string;
 }
 
-export interface EducationEntry {
-  span: string;
-  what: string;
-  where?: string;
-  whereUrl?: string;
-  note?: string;
+export interface PhaseLink {
+  label: string;
+  href: string;
 }
 
-// Education timeline — newest first.
-export const education: EducationEntry[] = [
-  { span: 'Summer 2025', what: 'CEET REU', where: 'UMass Amherst', note: 'with Amir Houmansadr' },
-  { span: '2023 – present', what: 'BA Computer Science', where: 'Hampshire College' },
-  { span: '2023', what: 'Software Fellowship', where: 'FUTO', whereUrl: 'https://www.futo.org/fellows/' },
-  { span: '2018 – 2022', what: 'High School', where: 'Charter School of Wilmington' },
+export interface TestScore {
+  label: string;
+  score: string;
+}
+
+export interface Phase {
+  id: string;
+  // Sortable timestamp-ish key. Format: "YYYY-MM" where MM bucket maps a term:
+  //   01 = early year, 04 = spring, 06 = summer, 09 = fall.
+  // Used for descending sort — bigger = newer.
+  sortKey: string;
+  kindLabel: string;       // small badge: "Division II", "Research", "High School"
+  title: string;           // e.g. "Semester 4"
+  subtitle?: string;       // e.g. "Spring 2026 · Hampshire College"
+  term?: string;           // CSV `year` for term-based phases (e.g. "2026S")
+  description?: string;
+  links?: PhaseLink[];
+  bullets?: string[];
+  // High-school / non-transcript content:
+  awards?: string[];
+  testScores?: TestScore[];
+  apExams?: string[];      // standalone AP exam list (separate from senior-year transcript)
+}
+
+// Reverse-chronological is the default render order; phases sort descending by sortKey.
+export const phases: Phase[] = [
+  {
+    id: 'div2-s4',
+    sortKey: '2026-04',
+    kindLabel: 'Division II',
+    title: 'Semester 4',
+    subtitle: 'Spring 2026 · Hampshire College',
+    term: '2026S',
+  },
+  {
+    id: 'div2-s3',
+    sortKey: '2025-09',
+    kindLabel: 'Division II',
+    title: 'Semester 3',
+    subtitle: 'Fall 2025 · Hampshire College',
+    term: '2025F',
+  },
+  {
+    id: 'ceet-reu',
+    sortKey: '2025-06',
+    kindLabel: 'Summer Research',
+    title: 'CEET REU',
+    subtitle: 'Summer 2025 · UMass Amherst',
+    description:
+      '[Placeholder] Computing for the End of the World REU with Amir Houmansadr. ' +
+      'Replace with what you actually worked on — research question, what you built, results.',
+  },
+  {
+    id: 'div2-s2',
+    sortKey: '2025-04',
+    kindLabel: 'Division II',
+    title: 'Semester 2',
+    subtitle: 'Spring 2025 · Hampshire College',
+    term: '2025S',
+  },
+  {
+    id: 'div2-s1',
+    sortKey: '2024-09',
+    kindLabel: 'Division II',
+    title: 'Semester 1',
+    subtitle: 'Fall 2024 · Hampshire College',
+    term: '2024F',
+  },
+  {
+    id: 'div1-s2',
+    sortKey: '2024-04',
+    kindLabel: 'Division I',
+    title: 'Semester 2',
+    subtitle: 'Spring 2024 · Hampshire College',
+    term: '2024S',
+  },
+  {
+    id: 'div1-s1',
+    sortKey: '2023-09',
+    kindLabel: 'Division I',
+    title: 'Semester 1',
+    subtitle: 'Fall 2023 · Hampshire College',
+    term: '2023F',
+  },
+  {
+    id: 'highschool',
+    sortKey: '2018-09',
+    kindLabel: 'High School',
+    title: 'Charter School of Wilmington',
+    subtitle: '2018 – 2022',
+    awards: [
+      'Computer Science Excellence Award',
+      '2nd Honors (Senior Year)',
+    ],
+    testScores: [
+      { label: 'SAT', score: '1580 · essay 3' },
+      { label: 'GPA', score: '4.135 cumulative' },
+    ],
+    apExams: [
+      'AP Calculus AB',
+      'AP Statistics',
+      'AP Physics C: Electricity & Magnetism',
+      'AP Physics C: Mechanics',
+    ],
+  },
 ];
 
 // URL extras for graded courses (mined from CVs).
-// Key format: `${year}:${class_code}` exactly as it appears in classes.csv.
+// Key format: `${year}:${class_code}` exactly as in classes.csv.
 export const courseExtras: Record<string, CourseExtras> = {
   '2026S:COMPSCI-513': {
     courseUrl: 'https://people.cs.umass.edu/~marius/class/cs513-sp26/',
@@ -75,43 +172,23 @@ export const courseExtras: Record<string, CourseExtras> = {
     courseUrl: 'https://www.fivecolleges.edu/courses/UM/2024/FALL/COMM/208/01',
     facultyDisplay: 'Ethan Zuckerman',
   },
-  '2024F:COMPSCI-446': {
-    facultyDisplay: 'James Allan',
-  },
-  '2024F:COMPSCI-H446': {
-    facultyDisplay: 'James Allan',
-  },
-  '2024F:COSC-311': {
-    facultyDisplay: 'John Rager',
-  },
-  '2024F:NS-0242': {
-    facultyDisplay: 'Kenneth Mulder',
-  },
-  '2024S:COMPSCI-320': {
-    facultyDisplay: 'Yuriy Brun',
-  },
-  '2024S:COMPSCI-250': {
-    facultyDisplay: 'David Barrington',
-  },
-  '2024S:COMPSCI-240': {
-    facultyDisplay: 'Mark Wilson',
-  },
+  '2024F:COMPSCI-446': { facultyDisplay: 'James Allan' },
+  '2024F:COMPSCI-H446': { facultyDisplay: 'James Allan' },
+  '2024F:COSC-311': { facultyDisplay: 'John Rager' },
+  '2024F:NS-0242': { facultyDisplay: 'Kenneth Mulder' },
+  '2024S:COMPSCI-320': { facultyDisplay: 'Yuriy Brun' },
+  '2024S:COMPSCI-250': { facultyDisplay: 'David Barrington' },
+  '2024S:COMPSCI-240': { facultyDisplay: 'Mark Wilson' },
   '2023F:COMPSCI-220': {
     facultyDisplay: 'Marius Minea',
     facultyUrl: 'https://people.cs.umass.edu/~marius/',
   },
-  '2023F:COMPSCI-230': {
-    facultyDisplay: 'Meng-Chieh Chiu',
-  },
-  '2023F:INST-0300': {
-    facultyDisplay: 'Kenneth Mulder',
-  },
-  '2026S:INST-0300': {
-    facultyDisplay: 'Kenneth Mulder',
-  },
+  '2023F:COMPSCI-230': { facultyDisplay: 'Meng-Chieh Chiu' },
+  '2023F:INST-0300': { facultyDisplay: 'Kenneth Mulder' },
+  '2026S:INST-0300': { facultyDisplay: 'Kenneth Mulder' },
 };
 
-// Audited / shadowed courses — not on the transcript, but part of the academic record.
+// Audited / shadowed courses — not on the transcript.
 export const auditedCourses: AuditedCourse[] = [
   {
     year: '2026S',
@@ -182,16 +259,3 @@ export const auditedCourses: AuditedCourse[] = [
     facultyDisplay: 'Lixin Gao',
   },
 ];
-
-// Ordering of academic terms (newest first). Used to sort term sections.
-export const termOrder = [
-  '2026S', '2025F', '2025S', '2024F', '2024S', '2023F',
-];
-
-export function termLabel(t: string): string {
-  const year = t.slice(0, 4);
-  const season = t.slice(4);
-  if (season === 'S') return `Spring ${year}`;
-  if (season === 'F') return `Fall ${year}`;
-  return t;
-}
