@@ -27,6 +27,7 @@ export interface AuditedCourse {
 export interface PhaseLink {
   label: string;
   href: string;
+  note?: string; // short trailing description rendered muted next to the link
 }
 
 export interface TestScore {
@@ -45,6 +46,9 @@ export interface Phase {
   subtitle?: string;       // e.g. "Spring 2026 · Hampshire College"
   term?: string;           // CSV `year` for term-based phases (e.g. "2026S")
   description?: string;
+  // Single prominent link rendered as a bold callout near the top of the card —
+  // for the marquee artifact of a phase (e.g. a Div reflection essay).
+  featuredLink?: PhaseLink;
   links?: PhaseLink[];
   bullets?: string[];
   // High-school / non-transcript content:
@@ -62,6 +66,10 @@ export const phases: Phase[] = [
     title: 'Semester 4',
     subtitle: 'Spring 2026 · Hampshire College',
     term: '2026S',
+    featuredLink: {
+      label: 'Div II Reflection Essay (PDF) →',
+      href: '/notes/div2-reflection-essay.pdf',
+    },
   },
   {
     id: 'div2-s3',
@@ -78,8 +86,22 @@ export const phases: Phase[] = [
     title: 'CEET REU',
     subtitle: 'Summer 2025 · UMass Amherst',
     description:
-      '[Placeholder] Computing for the End of the World REU with Amir Houmansadr. ' +
-      'Replace with what you actually worked on — research question, what you built, results.',
+      'Computing for the End of the World (CEET) REU with Amir Houmansadr. ' +
+      'Extracted ~1 month of RIPE Atlas ping-latency measurements into ' +
+      'node × node × timestamp tensors, then trained a transformer-based ' +
+      'sequence predictor on the resulting traces.',
+    links: [
+      {
+        label: 'ping-ingest',
+        href: 'https://github.com/zontasticality/ping-ingest',
+        note: 'Parallel pipeline (DuckDB) that converts raw RIPE Atlas .json.bz2 dumps into time-sorted, ZSTD-compressed Parquet, then aggregates/samples them into training-ready datasets.',
+      },
+      {
+        label: 'ping-llm',
+        href: 'https://github.com/zontasticality/ping-llm',
+        note: 'Decoder-only GPT-style Transformer (RoPE, ReLU², logit softcap, Muon + AdamW) with a custom byte-level tokenizer for IPs, RTTs, and timestamps. Trained on Modal via a grain + ArrayRecord data pipeline.',
+      },
+    ],
   },
   {
     id: 'div2-s2',
